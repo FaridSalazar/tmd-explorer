@@ -27,10 +27,10 @@ st.set_page_config(page_title="small-x gluon TMD explorer", layout="wide")
 BOX = dict(Qs02=(0.05, 1.0), C2=(0.5, 30.0))
 BEST = dict(Qs02=0.104, C2=15.06)            # MV fit to HERA 2009 (x<0.01)
 
-LABELS = {"qg1": r"$\mathcal{F}^{(1)}_{qg}$", "qg2": r"$\mathcal{F}^{(2)}_{qg}$",
-          "gg1": r"$\mathcal{F}^{(1)}_{gg}$", "gg2": r"$\mathcal{F}^{(2)}_{gg}$",
-          "gg3": r"$\mathcal{F}^{(3)}_{gg}$", "adj": r"$\mathcal{F}_{\rm Adj}$",
-          "ww": r"$\mathcal{F}_{\rm WW}$"}
+LABELS = {"qg1": r"${\mathcal{F}}^{(1)}_{qg}$", "qg2": r"${\mathcal{F}}^{(2)}_{qg}$",
+          "gg1": r"${\mathcal{F}}^{(1)}_{gg}$", "gg2": r"${\mathcal{F}}^{(2)}_{gg}$",
+          "gg3": r"${\mathcal{F}}^{(3)}_{gg}$", "adj": r"${\mathcal{F}}_{\mathrm{Adj}}$",
+          "ww": r"${\mathcal{F}}_{\mathrm{WW}}$"}
 COLORS = {"qg1": "C0", "qg2": "C1", "gg1": "C2", "gg3": "C3",
           "adj": "C4", "gg2": "C5", "ww": "k"}
 
@@ -73,9 +73,9 @@ st.caption(
 cL, cR = st.columns([1, 3])
 with cL:
     st.subheader("Dipole parameters")
-    qs02 = st.slider(r"$Q_{s0}^2$ [GeV$^2$]", *BOX["Qs02"], BEST["Qs02"], 0.005,
+    qs02 = st.slider(r"$Q_{s0}^{2}$ [GeV$^{2}$]", *BOX["Qs02"], BEST["Qs02"], 0.005,
                      help="Initial saturation scale squared at x0 = 0.01")
-    c2 = st.slider(r"$C^2$", *BOX["C2"], BEST["C2"], 0.25,
+    c2 = st.slider(r"$C^{2}$", *BOX["C2"], BEST["C2"], 0.25,
                    help="Running-coupling scale constant (evolution speed)")
     st.subheader("View")
     yy = st.slider("rapidity  Y = ln(x₀/x)", float(YS[0]), float(YS[-1]),
@@ -84,7 +84,7 @@ with cL:
     shown = st.multiselect("TMDs", ["qg1", "qg2", "gg1", "gg2", "gg3", "adj", "ww"],
                            default=["qg1", "qg2", "gg1", "gg3", "adj", "ww"])
     ref = st.checkbox("show MV HERA best fit (grey)", value=True)
-    kfix = st.slider(r"$k_T$ for the evolution panel [GeV]",
+    kfix = st.slider(r"$k_{T}$ for the evolution panel [GeV]",
                      0.5, 10.0, 1.0, 0.5)
     if st.button("reset to HERA best fit"):
         st.rerun()
@@ -106,21 +106,24 @@ with cR:
             axy.plot(YS, np.abs(Fref[k][:, ik]), color="0.65", lw=1.0, zorder=0)
     ax.set_xscale("log"); ax.set_yscale("log")
     ax.set_xlim(KT[0], KT[-1]); ax.set_ylim(1e-6, 1e0)
-    ax.set_xlabel(r"$k_T$ [GeV]")
-    ax.set_ylabel(r"$\alpha_s\,\mathcal{F}^{(i)}(k_T)/S_\perp$")
-    ax.set_title(rf"TMDs at $Y={yy:g}$  ($x={0.01*np.exp(-yy):.1e}$)")
+    ax.set_xlabel(r"$k_{T}$ [GeV]")
+    ax.set_ylabel(r"$\alpha_{s}\,{\mathcal{F}}^{(i)}(k_{T})/S_{\perp}$")
+    ax.set_title(rf"TMDs at $Y={yy:g}$   (x = {0.01*np.exp(-yy):.1e})")
     ax.grid(alpha=0.3, which="both")
     ax.legend(frameon=False, fontsize=10, ncol=2, loc="lower left")
     axy.axvline(yy, color="0.5", ls=":", lw=1)
     axy.set_yscale("log")
-    axy.set_xlabel(r"$Y$"); axy.set_title(rf"evolution at $k_T={kfix}$ GeV")
+    axy.set_xlabel(r"$Y$"); axy.set_title(rf"evolution at $k_{{T}}={kfix}$ GeV")
     axy.grid(alpha=0.3, which="both")
-    fig.tight_layout()
+    try:
+        fig.tight_layout()
+    except Exception:
+        pass
     st.pyplot(fig, clear_figure=True)
 
     st.caption(
         rf"$Q_{{s0}}^2 = {qs02:.3f}$ GeV$^2$, $C^2 = {c2:.2f}$  |  grey reference: "
         rf"MV HERA fit ($Q_{{s0}}^2={BEST['Qs02']}$, $C^2={BEST['C2']}$)  |  "
         "emulator v3 (regional GP, 224 training BK runs): median accuracy ~0.1%; "
-        "display uses light smoothing along $k_T$ (raw emulator in the pickle)."
+        "display uses light smoothing along $k_{T}$ (raw emulator in the pickle)."
     )

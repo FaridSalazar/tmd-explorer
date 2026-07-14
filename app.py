@@ -112,7 +112,12 @@ with cR:
         if Fref is not None:
             axy.plot(YS, np.abs(Fref[k][:, ik]), color="0.65", lw=1.0, zorder=0)
     ax.set_xscale("log"); ax.set_yscale("log")
-    ax.set_xlim(KT[0], KT[-1]); ax.set_ylim(1e-6, 1e0)
+    ax.set_xlim(KT[0], KT[-1])
+    # dynamic lower limit: show the full high-kT tails of ALL plotted curves
+    # (current parameters and, when shown, the grey HERA baseline)
+    lo = min([np.min(np.abs(F[k][jy])) for k in shown]
+             + ([np.min(np.abs(Fbase[k][jy])) for k in shown] if Fref is not None else []))
+    ax.set_ylim(max(0.5 * lo, 1e-9), 1e0)
     ax.set_xlabel(r"$k_{T}$ [GeV]")
     ax.set_ylabel(r"$\alpha_{s}\,{\mathcal{F}}^{(i)}(k_{T})/S_{\perp}$")
     ax.set_title(rf"TMDs at $Y={yy:g}$   (x = {0.01*np.exp(-yy):.1e})")

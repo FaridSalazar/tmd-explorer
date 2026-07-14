@@ -96,13 +96,15 @@ jy = int(np.argmin(np.abs(YS - yy)))
 ik = int(np.argmin(np.abs(KT - kfix)))
 
 with cR:
-    fig, (ax, axr, axy) = plt.subplots(1, 3, figsize=(15.0, 4.9),
-                                       gridspec_kw=dict(width_ratios=[1.5, 1.05, 1.05]))
+    fig, (ax, axr, axy) = plt.subplots(3, 1, figsize=(8.2, 12.0),
+                                       gridspec_kw=dict(height_ratios=[1.3, 1, 1],
+                                                        hspace=0.35))
+    qsnorm = qs02 / BEST["Qs02"]                 # divide out the trivial Qs0^2 scaling
     for k in shown:
         ax.plot(KT, np.abs(F[k][jy]), color=COLORS[k], lw=2.4, label=LABELS[k])
         if Fref is not None:
             ax.plot(KT, np.abs(Fref[k][jy]), color="0.65", lw=1.0, zorder=0)
-        axr.plot(KT, F[k][jy] / Fbase[k][jy], color=COLORS[k], lw=2.0)
+        axr.plot(KT, F[k][jy] / Fbase[k][jy] / qsnorm, color=COLORS[k], lw=2.0)
         axy.plot(YS, np.abs(F[k][:, ik]), color=COLORS[k], lw=2.2)
         if Fref is not None:
             axy.plot(YS, np.abs(Fref[k][:, ik]), color="0.65", lw=1.0, zorder=0)
@@ -116,8 +118,10 @@ with cR:
     axr.axhline(1.0, color="0.4", lw=0.8, ls="--")
     axr.set_xscale("log"); axr.set_xlim(KT[0], KT[-1])
     axr.set_xlabel(r"$k_{T}$ [GeV]")
-    axr.set_ylabel(r"${\mathcal{F}}\,/\,{\mathcal{F}}_{\mathrm{HERA}}$")
-    axr.set_title(rf"ratio to HERA fit at $Y={yy:g}$")
+    axr.set_ylabel(r"$\dfrac{{\mathcal{F}}/{\mathcal{F}}_{\mathrm{HERA}}}"
+                   r"{Q_{s0}^{2}/Q_{s0,\mathrm{HERA}}^{2}}$")
+    axr.set_title(rf"ratio to HERA fit at $Y={yy:g}$, "
+                  rf"normalized by $Q_{{s0}}^{{2}}$ ratio ($={qsnorm:.2f}$)")
     axr.grid(alpha=0.3, which="both")
     axy.axvline(yy, color="0.5", ls=":", lw=1)
     axy.set_yscale("log")

@@ -56,6 +56,11 @@ def predict_grid(qs02, c2):
     v = B["emu"].predict_g([[np.log(qs02), np.log(c2)]])[0]
     v = savgol_filter(v.reshape(len(YS), len(KEYS), len(KT)), 9, 3, axis=2)
     A = np.exp(v)
+    # mask the training-floor region (values < ~peak - 5.2 decades are an
+    # emulator conditioning artifact, not physics -- curves end instead of
+    # shelving; see TMD_emulator.pdf Sec. 4)
+    peak = A.max(axis=2, keepdims=True)
+    A = np.where(A > peak * 10**-5.3, A, np.nan)
     F = {k: A[:, i, :] for i, k in enumerate(KEYS)}
     F["gg2"] = F["gg1"] - F["adj"]            # exact reconstruction
     return F
@@ -115,8 +120,8 @@ with cR:
     ax.set_xlim(KT[0], KT[-1])
     # dynamic lower limit: show the full high-kT tails of ALL plotted curves
     # (current parameters and, when shown, the grey HERA baseline)
-    lo = min([np.min(np.abs(F[k][jy])) for k in shown]
-             + ([np.min(np.abs(Fbase[k][jy])) for k in shown] if Fref is not None else []))
+    lo = np.nanmin([np.nanmin(np.abs(F[k][jy])) for k in shown]
+                + ([np.nanmin(np.abs(Fbase[k][jy])) for k in shown] if Fref is not None else []))
     ax.set_ylim(max(0.5 * lo, 1e-9), 1e0)
     ax.set_xlabel(r"$k_{T}$ [GeV]")
     ax.set_ylabel(r"$\alpha_{s}\,{\mathcal{F}}^{(i)}(k_{T})/S_{\perp}$")

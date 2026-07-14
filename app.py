@@ -1,0 +1,126 @@
+#!/usr/bin/env python3
+# =============================================================================
+#  Interactive small-x gluon TMD explorer -- MV model (gamma = e_c = 1).
+#  Turn the (Qs0^2, C^2) knobs; a Gaussian-process emulator of the full
+#  rcBK + TMD pipeline (S-matrix evolution, IBP A1-A6, K-fit WW) returns all
+#  seven TMDs on an 80-point kT grid at 51 rapidities Y = 0..10 in ~1 ms.
+#
+#  Emulator validity box: Qs0^2 in [0.05, 1.0] GeV^2,  C^2 in [0.5, 30].
+#  v3 regional emulator (C^2 split at 4, blended): held-out median ~0.1%,
+#  sub-percent at all probe points incl. the low-C^2 corner.
+#
+#  Run:   streamlit run app.py
+# =============================================================================
+import os
+import sys
+import pickle
+import numpy as np
+import matplotlib.pyplot as plt
+import streamlit as st
+from scipy.signal import savgol_filter
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, HERE)                     # emulator.py (needed to unpickle)
+
+st.set_page_config(page_title="small-x gluon TMD explorer", layout="wide")
+
+BOX = dict(Qs02=(0.05, 1.0), C2=(0.5, 30.0))
+BEST = dict(Qs02=0.104, C2=15.06)            # MV fit to HERA 2009 (x<0.01)
+
+LABELS = {"qg1": r"$\mathcal{F}^{(1)}_{qg}$", "qg2": r"$\mathcal{F}^{(2)}_{qg}$",
+          "gg1": r"$\mathcal{F}^{(1)}_{gg}$", "gg2": r"$\mathcal{F}^{(2)}_{gg}$",
+          "gg3": r"$\mathcal{F}^{(3)}_{gg}$", "adj": r"$\mathcal{F}_{\rm Adj}$",
+          "ww": r"$\mathcal{F}_{\rm WW}$"}
+COLORS = {"qg1": "C0", "qg2": "C1", "gg1": "C2", "gg3": "C3",
+          "adj": "C4", "gg2": "C5", "ww": "k"}
+
+
+@st.cache_resource(show_spinner="Loading the trained TMD emulator...")
+def load_bundle():
+    with open(os.path.join(HERE, "mv_tmd_emulator.pkl"), "rb") as f:
+        return pickle.load(f)
+
+
+B = load_bundle()
+KT, YS, KEYS = B["kT"], np.asarray(B["YS"]), B["keys"]
+
+
+@st.cache_data(max_entries=64)
+def predict_grid(qs02, c2):
+    """All seven TMDs on the full (Y, kT) grid: F[key][iY, ikT].
+
+    A light Savitzky-Golay filter along ln kT (w=9, p=3) is applied FOR DISPLAY:
+    the direct pipeline curves are verified smooth at grid scale, so this removes
+    residual GP ringing (visible at low Y) without visibly biasing the curves.
+    """
+    v = B["emu"].predict_g([[np.log(qs02), np.log(c2)]])[0]
+    v = savgol_filter(v.reshape(len(YS), len(KEYS), len(KT)), 9, 3, axis=2)
+    A = np.exp(v)
+    F = {k: A[:, i, :] for i, k in enumerate(KEYS)}
+    F["gg2"] = F["gg1"] - F["adj"]            # exact reconstruction
+    return F
+
+
+# ── UI ────────────────────────────────────────────────────────────────────────
+st.title("Small-x gluon TMD explorer  (MV dipole)")
+st.caption(
+    "Move the knobs; a Gaussian-process emulator of the running-coupling BK + "
+    "TMD pipeline (Appendix A of arXiv:2512.21466 + Weizsäcker–Williams) returns "
+    "all seven gluon TMDs on the full $(k_T, Y)$ grid instantly.  "
+    "Sliders span the emulator's validity box."
+)
+
+cL, cR = st.columns([1, 3])
+with cL:
+    st.subheader("Dipole parameters")
+    qs02 = st.slider(r"$Q_{s0}^2$ [GeV$^2$]", *BOX["Qs02"], BEST["Qs02"], 0.005,
+                     help="Initial saturation scale squared at x0 = 0.01")
+    c2 = st.slider(r"$C^2$", *BOX["C2"], BEST["C2"], 0.25,
+                   help="Running-coupling scale constant (evolution speed)")
+    st.subheader("View")
+    yy = st.slider("rapidity  Y = ln(x₀/x)", float(YS[0]), float(YS[-1]),
+                   2.0, float(YS[1] - YS[0]))
+    st.caption(rf"x = {0.01 * np.exp(-yy):.2e}")
+    shown = st.multiselect("TMDs", ["qg1", "qg2", "gg1", "gg2", "gg3", "adj", "ww"],
+                           default=["qg1", "qg2", "gg1", "gg3", "adj", "ww"])
+    ref = st.checkbox("show MV HERA best fit (grey)", value=True)
+    kfix = st.slider(r"$k_T$ for the evolution panel [GeV]",
+                     0.5, 10.0, 1.0, 0.5)
+    if st.button("reset to HERA best fit"):
+        st.rerun()
+
+F = predict_grid(qs02, c2)
+Fref = predict_grid(BEST["Qs02"], BEST["C2"]) if ref else None
+jy = int(np.argmin(np.abs(YS - yy)))
+ik = int(np.argmin(np.abs(KT - kfix)))
+
+with cR:
+    fig, (ax, axy) = plt.subplots(1, 2, figsize=(12.5, 5.2),
+                                  gridspec_kw=dict(width_ratios=[1.9, 1]))
+    for k in shown:
+        ax.plot(KT, np.abs(F[k][jy]), color=COLORS[k], lw=2.4, label=LABELS[k])
+        if Fref is not None:
+            ax.plot(KT, np.abs(Fref[k][jy]), color="0.65", lw=1.0, zorder=0)
+        axy.plot(YS, np.abs(F[k][:, ik]), color=COLORS[k], lw=2.2)
+        if Fref is not None:
+            axy.plot(YS, np.abs(Fref[k][:, ik]), color="0.65", lw=1.0, zorder=0)
+    ax.set_xscale("log"); ax.set_yscale("log")
+    ax.set_xlim(KT[0], KT[-1]); ax.set_ylim(1e-6, 1e0)
+    ax.set_xlabel(r"$k_T$ [GeV]")
+    ax.set_ylabel(r"$\alpha_s\,\mathcal{F}^{(i)}(k_T)/S_\perp$")
+    ax.set_title(rf"TMDs at $Y={yy:g}$  ($x={0.01*np.exp(-yy):.1e}$)")
+    ax.grid(alpha=0.3, which="both")
+    ax.legend(frameon=False, fontsize=10, ncol=2, loc="lower left")
+    axy.axvline(yy, color="0.5", ls=":", lw=1)
+    axy.set_yscale("log")
+    axy.set_xlabel(r"$Y$"); axy.set_title(rf"evolution at $k_T={kfix}$ GeV")
+    axy.grid(alpha=0.3, which="both")
+    fig.tight_layout()
+    st.pyplot(fig, clear_figure=True)
+
+    st.caption(
+        rf"$Q_{{s0}}^2 = {qs02:.3f}$ GeV$^2$, $C^2 = {c2:.2f}$  |  grey reference: "
+        rf"MV HERA fit ($Q_{{s0}}^2={BEST['Qs02']}$, $C^2={BEST['C2']}$)  |  "
+        "emulator v3 (regional GP, 224 training BK runs): median accuracy ~0.1%; "
+        "display uses light smoothing along $k_T$ (raw emulator in the pickle)."
+    )

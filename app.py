@@ -56,11 +56,13 @@ def predict_grid(qs02, c2):
     v = B["emu"].predict_g([[np.log(qs02), np.log(c2)]])[0]
     v = savgol_filter(v.reshape(len(YS), len(KEYS), len(KT)), 9, 3, axis=2)
     A = np.exp(v)
-    # mask the training-floor region (values < ~peak - 5.2 decades are an
-    # emulator conditioning artifact, not physics -- curves end instead of
-    # shelving; see TMD_emulator.pdf Sec. 4)
+    # mask the per-TMD training-floor region (conditioning artifact, not
+    # physics -- curves end instead of shelving; see TMD_emulator.pdf Sec. 4).
+    # v3.2: WW floor is 8 decades below peak (full tail), others 5.5.
     peak = A.max(axis=2, keepdims=True)
-    A = np.where(A > peak * 10**-5.3, A, np.nan)
+    fdec = np.array([B.get("floor_dec", {}).get(k, 5.5) for k in KEYS])
+    thr = peak * 10.0 ** -(fdec[None, :, None] - 0.2)
+    A = np.where(A > thr, A, np.nan)
     F = {k: A[:, i, :] for i, k in enumerate(KEYS)}
     F["gg2"] = F["gg1"] - F["adj"]            # exact reconstruction
     return F

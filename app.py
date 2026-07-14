@@ -90,17 +90,19 @@ with cL:
         st.rerun()
 
 F = predict_grid(qs02, c2)
-Fref = predict_grid(BEST["Qs02"], BEST["C2"]) if ref else None
+Fbase = predict_grid(BEST["Qs02"], BEST["C2"])       # HERA baseline (always, for ratios)
+Fref = Fbase if ref else None
 jy = int(np.argmin(np.abs(YS - yy)))
 ik = int(np.argmin(np.abs(KT - kfix)))
 
 with cR:
-    fig, (ax, axy) = plt.subplots(1, 2, figsize=(12.5, 5.2),
-                                  gridspec_kw=dict(width_ratios=[1.9, 1]))
+    fig, (ax, axr, axy) = plt.subplots(1, 3, figsize=(15.0, 4.9),
+                                       gridspec_kw=dict(width_ratios=[1.5, 1.05, 1.05]))
     for k in shown:
         ax.plot(KT, np.abs(F[k][jy]), color=COLORS[k], lw=2.4, label=LABELS[k])
         if Fref is not None:
             ax.plot(KT, np.abs(Fref[k][jy]), color="0.65", lw=1.0, zorder=0)
+        axr.plot(KT, F[k][jy] / Fbase[k][jy], color=COLORS[k], lw=2.0)
         axy.plot(YS, np.abs(F[k][:, ik]), color=COLORS[k], lw=2.2)
         if Fref is not None:
             axy.plot(YS, np.abs(Fref[k][:, ik]), color="0.65", lw=1.0, zorder=0)
@@ -110,7 +112,13 @@ with cR:
     ax.set_ylabel(r"$\alpha_{s}\,{\mathcal{F}}^{(i)}(k_{T})/S_{\perp}$")
     ax.set_title(rf"TMDs at $Y={yy:g}$   (x = {0.01*np.exp(-yy):.1e})")
     ax.grid(alpha=0.3, which="both")
-    ax.legend(frameon=False, fontsize=10, ncol=2, loc="lower left")
+    ax.legend(frameon=False, fontsize=9, ncol=2, loc="lower left")
+    axr.axhline(1.0, color="0.4", lw=0.8, ls="--")
+    axr.set_xscale("log"); axr.set_xlim(KT[0], KT[-1])
+    axr.set_xlabel(r"$k_{T}$ [GeV]")
+    axr.set_ylabel(r"${\mathcal{F}}\,/\,{\mathcal{F}}_{\mathrm{HERA}}$")
+    axr.set_title(rf"ratio to HERA fit at $Y={yy:g}$")
+    axr.grid(alpha=0.3, which="both")
     axy.axvline(yy, color="0.5", ls=":", lw=1)
     axy.set_yscale("log")
     axy.set_xlabel(r"$Y$"); axy.set_title(rf"evolution at $k_{{T}}={kfix}$ GeV")

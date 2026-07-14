@@ -74,9 +74,9 @@ cL, cR = st.columns([1, 3])
 with cL:
     st.subheader("Dipole parameters")
     qs02 = st.slider(r"$Q_{s0}^{2}$ [GeV$^{2}$]", *BOX["Qs02"], BEST["Qs02"], 0.005,
-                     help="Initial saturation scale squared at x0 = 0.01")
+                     key="qs02", help="Initial saturation scale squared at x0 = 0.01")
     c2 = st.slider(r"$C^{2}$", *BOX["C2"], BEST["C2"], 0.25,
-                   help="Running-coupling scale constant (evolution speed)")
+                   key="c2", help="Running-coupling scale constant (evolution speed)")
     st.subheader("View")
     yy = st.slider("rapidity  Y = ln(x₀/x)", float(YS[0]), float(YS[-1]),
                    2.0, float(YS[1] - YS[0]))
@@ -86,8 +86,11 @@ with cL:
     ref = st.checkbox("show MV HERA best fit (grey)", value=True)
     kfix = st.slider(r"$k_{T}$ for the evolution panel [GeV]",
                      0.5, 10.0, 1.0, 0.5)
-    if st.button("reset to HERA best fit"):
-        st.rerun()
+    def _reset_to_hera():
+        st.session_state["qs02"] = BEST["Qs02"]
+        st.session_state["c2"] = BEST["C2"]
+
+    st.button("reset to HERA best fit", on_click=_reset_to_hera)
 
 F = predict_grid(qs02, c2)
 Fbase = predict_grid(BEST["Qs02"], BEST["C2"])       # HERA baseline (always, for ratios)

@@ -217,3 +217,35 @@ class ColumnStitchEmulator:
         for emu, idx, w in zip(self.emus, self.cols, self.weights):
             out[:, idx] += w[None, :] * emu.predict_g(X)
         return out
+
+class Y0ConstrainedEmulator:
+    """Wrap a 3D (ln Qs0^2, ln C^2, gamma) grid emulator with an exact 2D Y=0
+    sub-emulator.
+
+    The Y=0 slice of the TMD grid depends only on (Qs0^2, gamma) -- the
+    initial condition is analytic and C^2 (the evolution-speed constant)
+    cannot enter -- so a dedicated 2D emulator trained on directly-computed
+    IC targets replaces the 3D prediction there EXACTLY (also enforcing the
+    C^2-independence constraint by construction).  The correction
+    delta = y0_exact - y0_3D is tapered linearly in Y over [0, y_blend], so
+    nearby low-Y slices (whose 3D error is correlated with the Y=0 error)
+    inherit most of the fix without a seam.
+    """
+
+    def __init__(self, emu3d, emu_y0, ys, nkey, nkt, y_blend=1.0):
+        self.emu3d = emu3d
+        self.emu_y0 = emu_y0
+        self.ys = np.asarray(ys, dtype=float)
+        self.nkey, self.nkt = int(nkey), int(nkt)
+        self.y_blend = float(y_blend)
+
+    def predict_g(self, TH):
+        TH = np.atleast_2d(np.asarray(TH, dtype=float))
+        P = self.emu3d.predict_g(TH)
+        P0 = self.emu_y0.predict_g(TH[:, [0, 2]])          # (n, nkey*nkt)
+        ny = len(self.ys)
+        A = P.reshape(len(TH), ny, self.nkey * self.nkt)
+        delta = P0 - A[:, 0, :]
+        w = np.clip(1.0 - self.ys / self.y_blend, 0.0, 1.0)
+        A = A + w[None, :, None] * delta[:, None, :]
+        return A.reshape(len(TH), -1)
